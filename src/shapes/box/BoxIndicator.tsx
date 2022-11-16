@@ -1,8 +1,8 @@
 import { TLShapeUtil } from '@tldraw/core'
 import * as React from 'react'
-import type { RectShape } from './RectShape'
+import type { BoxShape } from './BoxShape'
 
-export const RectIndicator = TLShapeUtil.Indicator<RectShape>(({ shape }) => {
+export const BoxIndicator = TLShapeUtil.Indicator<BoxShape>(({ shape }) => {
   return (
     <rect
       pointerEvents="none"
@@ -11,6 +11,7 @@ export const RectIndicator = TLShapeUtil.Indicator<RectShape>(({ shape }) => {
       fill="none"
       stroke="tl-selectedStroke"
       strokeWidth={1}
+      rx={4}
     />
   )
 })

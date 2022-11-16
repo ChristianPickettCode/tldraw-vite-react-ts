@@ -1,147 +1,241 @@
-import { Renderer, TLBinding, TLPage, TLPageState, TLPointerEventHandler } from '@tldraw/core'
-import Vec from '@tldraw/vec'
+import { useStateDesigner } from '@state-designer/react'
+import {
+  Renderer,
+  TLBounds,
+  TLKeyboardEventHandler,
+  TLPinchEventHandler,
+  TLPointerEventHandler,
+  TLWheelEventHandler,
+} from '@tldraw/core'
 import * as React from 'react'
-import { RectUtil, Shape } from './shapes'
+import { Api } from './state/api'
+import styled from './stitches.config'
+// import { TitleLinks } from './components/TitleLinks'
+import { Toolbar } from './components/Toolbar'
+import { shapeUtils } from './shapes'
+import { machine } from './state/machine'
+import './styles.css'
 
-const shapeUtils = {
-  rect: new RectUtil(),
+declare const window: Window & { api: Api }
+
+const onHoverShape: TLPointerEventHandler = (info, e) => {
+  machine.send('HOVERED_SHAPE', info)
 }
 
-export default function App() {
-  const [page, setPage] = React.useState<TLPage<Shape, TLBinding>>({
-    id: 'page1',
-    shapes: {
-      box1: {
-        id: 'box1',
-        type: 'rect',
-        parentId: 'page1',
-        name: 'Box',
-        childIndex: 1,
-        rotation: 0,
-        point: [0, 0],
-        size: [100, 100],
-      },
-    },
-    bindings: {},
-  })
+const onUnhoverShape: TLPointerEventHandler = (info, e) => {
+  machine.send('UNHOVERED_SHAPE', info)
+}
 
-  const [pageState, setPageState] = React.useState<TLPageState>({
-    id: 'page',
-    selectedIds: [],
-    hoveredId: undefined,
-    camera: {
-      point: [0, 0],
-      zoom: 1,
-    },
-  })
-  const onHoverShape: TLPointerEventHandler = (e) => {
-    setPageState({
-      ...pageState,
-      hoveredId: e.target,
-    })
-  }
+const onPointShape: TLPointerEventHandler = (info, e) => {
+  machine.send('POINTED_SHAPE', info)
+}
 
-  const onUnhoverShape: TLPointerEventHandler = () => {
-    setPageState({
-      ...pageState,
-      hoveredId: null,
-    })
-  }
+const onPointCanvas: TLPointerEventHandler = (info, e) => {
+  machine.send('POINTED_CANVAS', info)
+}
 
-  const onPointShape: TLPointerEventHandler = (info) => {
-    setPageState({ ...pageState, selectedIds: [info.target] })
-  }
+const onPointBounds: TLPointerEventHandler = (info, e) => {
+  machine.send('POINTED_BOUNDS', info)
+}
 
-  const onPointCanvas: TLPointerEventHandler = () => {
-    setPageState({ ...pageState, selectedIds: [] })
-  }
+const onPointHandle: TLPointerEventHandler = (info, e) => {
+  machine.send('POINTED_HANDLE', info)
+}
 
-  const onDragShape: TLPointerEventHandler = (e) => {
-    setPage((page) => {
-      const shape = page.shapes[e.target]
+const onPointerDown: TLPointerEventHandler = (info, e) => {
+  machine.send('STARTED_POINTING', info)
+}
 
-      return {
-        ...page,
-        shapes: {
-          ...page.shapes,
-          [shape.id]: {
-            ...shape,
-            point: Vec.sub(e.point, Vec.div(shape.size, 2)),
-          },
-        },
+const onPointerUp: TLPointerEventHandler = (info, e) => {
+  machine.send('STOPPED_POINTING', info)
+}
+
+const onPointerMove: TLPointerEventHandler = (info, e) => {
+  machine.send('MOVED_POINTER', info)
+}
+
+const onPan: TLWheelEventHandler = (info, e) => {
+  machine.send('PANNED', info)
+}
+
+const onPinchStart: TLPinchEventHandler = (info, e) => {
+  machine.send('STARTED_PINCHING', info)
+}
+
+const onPinch: TLPinchEventHandler = (info, e) => {
+  machine.send('PINCHED', info)
+}
+
+const onPinchEnd: TLPinchEventHandler = (info, e) => {
+  machine.send('STOPPED_PINCHING', info)
+}
+
+const onPointBoundsHandle: TLPinchEventHandler = (info, e) => {
+  machine.send('POINTED_BOUNDS_HANDLE', info)
+}
+
+const onBoundsChange = (bounds: TLBounds) => {
+  machine.send('RESIZED', { bounds })
+}
+
+const onKeyDown: TLKeyboardEventHandler = (key, info, e) => {
+  switch (key) {
+    case 'Alt':
+    case 'Meta':
+    case 'Control':
+    case 'Shift': {
+      machine.send('TOGGLED_MODIFIER', info)
+      break
+    }
+    case 'Backspace': {
+      machine.send('DELETED', info)
+      break
+    }
+    case 'Escape': {
+      machine.send('CANCELLED', info)
+      break
+    }
+    case '0': {
+      machine.send('ZOOMED_TO_ACTUAL', info)
+      break
+    }
+    case '1': {
+      machine.send('ZOOMED_TO_FIT', info)
+      break
+    }
+    case '2': {
+      machine.send('ZOOMED_TO_SELECTION', info)
+      break
+    }
+    case '=': {
+      if (info.metaKey || info.ctrlKey) {
+        e.preventDefault()
+        machine.send('ZOOMED_IN', info)
       }
-    })
-  }
-
-  const onPointerMove: TLPointerEventHandler = (info) => {
-    if (info.shiftKey) {
-      setPageState((prev) => ({
-        ...pageState,
-        camera: {
-          ...prev.camera,
-          point: Vec.add(prev.camera.point, info.delta),
-        },
-      }))
+      break
+    }
+    case '-': {
+      if (info.metaKey || info.ctrlKey) {
+        e.preventDefault()
+        machine.send('ZOOMED_OUT', info)
+      }
+      break
+    }
+    case 's':
+    case 'v': {
+      machine.send('SELECTED_TOOL', { name: 'select' })
+      break
+    }
+    case 'r':
+    case 'b': {
+      machine.send('SELECTED_TOOL', { name: 'box' })
+      break
+    }
+    case 'e': {
+      machine.send('SELECTED_TOOL', { name: 'eraser' })
+      break
+    }
+    case 'a': {
+      if (info.metaKey || info.ctrlKey) {
+        machine.send('SELECTED_ALL')
+        e.preventDefault()
+      } else {
+        machine.send('SELECTED_TOOL', { name: 'arrow' })
+      }
+      break
+    }
+    case 'z': {
+      if (info.metaKey || info.ctrlKey) {
+        if (info.shiftKey) {
+          machine.send('REDO')
+        } else {
+          machine.send('UNDO')
+        }
+      }
+      break
     }
   }
+}
 
-  const [meta] = React.useState({
-    isDarkMode: false,
-  })
+const onKeyUp: TLKeyboardEventHandler = (key, info, e) => {
+  switch (key) {
+    case 'Alt':
+    case 'Meta':
+    case 'Control':
+    case 'Shift': {
+      machine.send('TOGGLED_MODIFIER', info)
+      break
+    }
+  }
+}
 
-  const theme = React.useMemo(
-    () =>
-      meta.isDarkMode
-        ? {
-            accent: 'rgb(255, 0, 0)',
-            brushFill: 'rgba(0,0,0,.05)',
-            brushStroke: 'rgba(0,0,0,.25)',
-            brushDashStroke: 'rgba(0,0,0,.6)',
-            selectStroke: 'rgb(66, 133, 244)',
-            selectFill: 'rgba(65, 132, 244, 0.05)',
-            background: 'rgb(248, 249, 250)',
-            foreground: 'rgb(51, 51, 51)',
-          }
-        : {
-            accent: 'rgb(255, 0, 0)',
-            brushFill: 'rgba(0,0,0,.05)',
-            brushStroke: 'rgba(0,0,0,.25)',
-            brushDashStroke: 'rgba(0,0,0,.6)',
-            selectStroke: 'rgb(66, 133, 244)',
-            selectFill: 'rgba(65, 132, 244, 0.05)',
-            background: 'rgb(248, 249, 250)',
-            foreground: 'rgb(51, 51, 51)',
-          },
-    [meta]
-  )
+interface AppProps {
+  onMount?: (api: Api) => void
+}
+
+export default function App({ onMount }: AppProps) {
+  const appState = useStateDesigner(machine)
+
+  React.useEffect(() => {
+    const api = new Api(appState)
+    onMount?.(api)
+    window['api'] = api
+  }, [])
+
+  const hideBounds = appState.isInAny('transformingSelection', 'translating', 'creating')
+
+  const firstShapeId = appState.data.pageState.selectedIds[0]
+  const firstShape = firstShapeId ? appState.data.page.shapes[firstShapeId] : null
+  const hideResizeHandles = firstShape
+    ? appState.data.pageState.selectedIds.length === 1 &&
+      (shapeUtils[firstShape.type] as any).hideResizeHandles
+    : false
 
   return (
-    <div className="tldraw">
+    <AppContainer>
       <Renderer
         shapeUtils={shapeUtils} // Required
-        page={page} // Required
-        pageState={pageState} // Required
+        page={appState.data.page} // Required
+        pageState={appState.data.pageState} // Required
+        performanceMode={appState.data.performanceMode}
+        meta={appState.data.meta}
+        snapLines={appState.data.overlays.snapLines}
+        onPointShape={onPointShape}
+        onPointBounds={onPointBounds}
+        onPointCanvas={onPointCanvas}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
         onHoverShape={onHoverShape}
         onUnhoverShape={onUnhoverShape}
-        onPointShape={onPointShape}
-        onPointCanvas={onPointCanvas}
-        onPointerMove={onPointerMove}
-        onDragShape={onDragShape}
-        meta={meta}
-        theme={theme}
-        id={undefined}
-        containerRef={undefined}
-        hideBounds={false}
-        hideIndicators={false}
-        hideHandles={false}
-        hideCloneHandles={false}
-        hideBindingHandles={false}
-        hideRotateHandles={false}
-        userId={undefined}
-        users={undefined}
-        snapLines={undefined}
-        onBoundsChange={undefined}
+        onPointBoundsHandle={onPointBoundsHandle}
+        onPointHandle={onPointHandle}
+        onPan={onPan}
+        onPinchStart={onPinchStart}
+        onPinchEnd={onPinchEnd}
+        onPinch={onPinch}
+        onPointerUp={onPointerUp}
+        onBoundsChange={onBoundsChange}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
+        hideBounds={hideBounds}
+        hideHandles={hideBounds}
+        hideResizeHandles={hideResizeHandles}
+        hideIndicators={hideBounds}
+        hideBindingHandles={true}
       />
-    </div>
+      <Toolbar activeStates={appState.active} lastEvent={appState.log[0]} />
+      {/* <TitleLinks /> */}
+    </AppContainer>
   )
 }
+
+const AppContainer = styled('div', {
+  position: 'fixed',
+  top: '0px',
+  left: '0px',
+  right: '0px',
+  bottom: '0px',
+  width: '100%',
+  height: '100%',
+  zIndex: 101,
+})

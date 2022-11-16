@@ -1,9 +1,9 @@
 import { SVGContainer, TLShapeUtil } from '@tldraw/core'
 import * as React from 'react'
-import type { RectShape } from './RectShape'
+import type { BoxShape } from './BoxShape'
 
-export const RectComponent = TLShapeUtil.Component<RectShape, SVGSVGElement>(
-  ({ shape, events, meta }, ref) => {
+export const BoxComponent = TLShapeUtil.Component<BoxShape, SVGSVGElement>(
+  ({ shape, events, isGhost, meta }, ref) => {
     const color = meta.isDarkMode ? 'white' : 'black'
 
     return (
@@ -12,9 +12,11 @@ export const RectComponent = TLShapeUtil.Component<RectShape, SVGSVGElement>(
           width={shape.size[0]}
           height={shape.size[1]}
           stroke={color}
-          strokeWidth={2}
+          strokeWidth={3}
           strokeLinejoin="round"
           fill="none"
+          rx={4}
+          opacity={isGhost ? 0.3 : 1}
           pointerEvents="all"
         />
       </SVGContainer>
