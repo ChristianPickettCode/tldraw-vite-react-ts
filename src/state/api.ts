@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { Shape } from 'shapes'
+import type { Shape } from '../shapes'
 import type { CustomBinding } from './constants'
 import type { machine } from './machine'
 

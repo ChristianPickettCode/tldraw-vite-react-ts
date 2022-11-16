@@ -258,41 +258,6 @@ export const machine = createState({
         },
       },
     },
-    pencil: {
-      onEnter: 'setTransformPerformanceMode',
-      initial: 'idle',
-      states: {
-        idle: {
-          on: {
-            UNDO: 'undo',
-            REDO: 'redo',
-            SELECTED_ALL: { do: 'selectAllShapes', to: 'select' },
-            STARTED_POINTING: {
-              do: 'setInitialPoint',
-              to: 'pencil.creating',
-            },
-            CANCELLED: {
-              to: 'select',
-            },
-          },
-        },
-        creating: {
-          onEnter: ['createPencilShape', 'setSnapshot'],
-          on: {
-            TOGGLED_MODIFIER: 'extendPencilShape',
-            MOVED_POINTER: 'extendPencilShape',
-            PANNED: 'extendPencilShape',
-            CANCELLED: {
-              do: 'deleteSelectedShapes',
-            },
-            STOPPED_POINTING: {
-              do: ['deselectAllShapes', 'addToHistory'],
-              to: 'pencil.idle',
-            },
-          },
-        },
-      },
-    },
     box: {
       onEnter: 'setTransformPerformanceMode',
       initial: 'idle',

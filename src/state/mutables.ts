@@ -1,6 +1,6 @@
 import { TLBounds, TLBoundsHandle, TLBoundsWithCenter, Utils } from '@tldraw/core'
-import type { Shape } from 'shapes'
-import type { ArrowShape } from 'shapes/arrow'
+import type { Shape } from '../shapes'
+import type { ArrowShape } from '../shapes/arrow'
 import { AppData, INITIAL_DATA } from './constants'
 import { makeHistory } from './history'
 

@@ -1,7 +1,7 @@
 import { Utils } from '@tldraw/core'
 import Vec from '@tldraw/vec'
 import { Shape, getShapeUtils } from '../../../shapes'
-import type { ArrowShape } from 'shapes/arrow'
+import type { ArrowShape } from '../../../shapes/arrow'
 import type { AppData } from '../../constants'
 
 export function getBoundTarget(

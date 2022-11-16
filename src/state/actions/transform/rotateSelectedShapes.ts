@@ -1,7 +1,7 @@
 import { TLPointerInfo, Utils } from '@tldraw/core'
 import Vec from '@tldraw/vec'
 import { getShapeUtils } from '../../../shapes'
-import type { ArrowShape } from 'shapes/arrow'
+import type { ArrowShape } from '../../../shapes/arrow'
 import type { Action } from '../../constants'
 import { mutables } from '../../mutables'
 
