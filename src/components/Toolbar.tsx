@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ArrowUpRight, Edit2, MousePointer, Square, X } from 'react-feather'
+import { ArrowUpRight, MousePointer, Square, X } from 'react-feather'
 import { machine } from '../state/machine'
 import styled from '../stitches.config'
 
@@ -41,7 +41,7 @@ export function Toolbar({ activeStates, lastEvent }: ToolbarProps) {
           </Highlight>
         </PrimaryToolButton>
       </PrimaryTools>
-      <StatusBar>
+      {/* <StatusBar>
         <div>
           <button onClick={onReset}>Reset</button>
           {activeStates
@@ -53,7 +53,7 @@ export function Toolbar({ activeStates, lastEvent }: ToolbarProps) {
             .join(' - ')}
         </div>
         <div>{lastEvent}</div>
-      </StatusBar>
+      </StatusBar> */}
     </ToolbarContainer>
   )
 }
@@ -63,8 +63,7 @@ const ToolbarContainer = styled('div', {
   gridTemplateColumns: '1fr',
   gridTemplateRows: 'auto auto',
   gridRowGap: '$5',
-  position: 'fixed',
-  bottom: '0',
+  marginTop:'$5',
   width: '100%',
   zIndex: '100',
 })
