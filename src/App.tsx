@@ -1,6 +1,6 @@
 import { useStateDesigner } from "@state-designer/react";
 import { Renderer } from "@tldraw/core";
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Api } from "./state/api";
 import styled from "./stitches.config";
 import { Toolbar } from "./components/Toolbar";
@@ -11,8 +11,11 @@ import * as EventHandler from "./eventhandlers";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { Bars3Icon, BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { nanoid } from "nanoid";
+import daiABI from "./dai_abi.json";
+import { ethers } from "ethers";
+import axios from "axios"
 
-declare const window: Window & { api: Api };
+declare const window: Window & { api: Api, ethereum: any };
 
 interface AppProps {
   onMount?: (api: Api) => void;
@@ -21,11 +24,111 @@ interface AppProps {
 export default function App({ onMount }: AppProps) {
   const appState = useStateDesigner(machine);
   const api = new Api(appState);
+  const [provider, setProvider] = useState();
+  const [signer, setSignner] = useState();
+
+  const [args, setArgs] : any = useState({});
+  const [search, setSearch] = useState("");
+
+  const [queriedABI, setQueriedABI] = useState("")
+  const [queriedAddr, setQueriedAddr] = useState("")
 
   useEffect(() => {
     onMount?.(api);
     window["api"] = api;
+
+    // console.log(process)
+    // console.log(process.env)
+    // const iface = new ethers.Interface(jsonAbi);
   }, []);
+
+  const connect = async () => {
+    const p = new ethers.providers.Web3Provider(window.ethereum);
+    await p.send("eth_requestAccounts", []);
+    const s = p.getSigner();
+    const addr = await s.getAddress();
+    console.log(addr);
+  };
+
+  const send = () => {
+    const p = new ethers.providers.Web3Provider(window.ethereum);
+    const s = p.getSigner();
+    const tx = s.sendTransaction({
+      to: "ethers.eth",
+      value: ethers.utils.parseEther("0.0001"),
+    });
+  };
+
+  const searchABI = () => {
+    const contractAddr = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
+    const apiKey = import.meta.env.ETHERSCAN_API
+    // WETH MAINNET CONTRACT ADDR ; 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 - FOR ETHERSCAN TO RETRIEVE ABI
+    axios.get(`https://api.etherscan.io/api?module=contract&action=getabi&address=${search}&apikey=${apiKey}`)
+    .then(function (response) {
+      // handle success
+      console.log(response);
+      if (response.data.status === '1') {
+        console.log("Success")
+        console.log(response.data.result)
+        setQueriedABI(response.data.result)
+      } else {
+        console.log(response.data.result)
+      }
+    })
+    .catch(function (error) {
+      // handle error
+      console.log(error);
+    })
+
+  }
+
+  const abi = async () => {
+    const p = new ethers.providers.Web3Provider(window.ethereum);
+    const s = p.getSigner();
+    const addr = await s.getAddress();
+    // console.log(JSON.stringify(JSON.parse(daiABI), null, 2));
+
+    var ABI = queriedABI ? queriedABI : daiABI
+    const daiContract = new ethers.Contract(
+      "0xf2edF1c091f683E3fb452497d9a98A49cBA84666",
+      ABI,
+      p
+    );
+    const name = await daiContract.name();
+    console.log(name);
+
+    const symbol = await daiContract.symbol();
+    console.log(symbol);
+
+    const balance = await daiContract.balanceOf(
+      "0xf4c5c4dedde7a86b25e7430796441e209e23ebfb"
+    );
+    console.log(ethers.utils.formatUnits(balance, 18));
+    console.log(daiContract.functions);
+
+    const iface = new ethers.utils.Interface(ABI);
+    console.log(iface.format(ethers.utils.FormatTypes.full));
+    console.log(iface.format(ethers.utils.FormatTypes.minimal)[8]);
+    console.log(iface.format(ethers.utils.FormatTypes.full)[8]);
+
+    var func = iface.format(ethers.utils.FormatTypes.minimal)[8].split(" ")[1];
+    console.log(func);
+    var func_name = iface.getFunction(func).name;
+    console.log(func_name);
+    console.log(
+      ethers.utils.formatUnits(
+        await daiContract[func_name](
+          "0xf4c5c4dedde7a86b25e7430796441e209e23ebfb"
+        )
+      )
+    );
+
+    func = iface.format(ethers.utils.FormatTypes.minimal)[21].split(" ")[1];
+    console.log(func);
+    func_name = iface.getFunction(func).name;
+    console.log(func_name);
+    console.log(ethers.utils.formatUnits(await daiContract[func_name]()));
+  };
 
   const addBox = () => {
     api.createShapes({ id: nanoid(), type: "box" });
@@ -33,6 +136,104 @@ export default function App({ onMount }: AppProps) {
 
   const addArrow = () => {
     api.createShapes({ id: nanoid(), type: "arrow" });
+  };
+
+  const callFunc = async (name: string, details: any) => {
+    console.log(`Calling func....${name}`);
+    const p = new ethers.providers.Web3Provider(window.ethereum);
+    var ABI = queriedABI ? queriedABI : daiABI
+    var ADDR = queriedAddr ? queriedAddr : "0xf2edF1c091f683E3fb452497d9a98A49cBA84666"
+    console.log('ADDR', ADDR)
+
+    // WETH GOERLI CONTRACT ADDR ; 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6 - CONTRACT OBJ ADDR
+    const contract = new ethers.Contract(
+      ADDR,
+      ABI,
+      p
+    );
+
+    console.log(contract)
+    console.log(name);
+    console.log(details);
+
+    var arg_list: string[] = [];
+    details.inputs.map((_: string, i: string) => {
+      var arg_name : string = `${name}-${i}`;
+      console.log(`PARAM VALS : ${args[arg_name]}`);
+      arg_list.push(args[arg_name]);
+    });
+
+    console.log(arg_list);
+
+    var res = await contract[name](...arg_list);
+
+    // res.type === BigNumber
+    console.log(res.constructor.name);
+
+    switch (res.constructor.name) {
+      case "BigNumber":
+        console.log(ethers.utils.formatUnits(res));
+        break;
+
+      default:
+        console.log(res);
+        break;
+    }
+  };
+
+  const populate = () => {
+    var ABI = queriedABI ? queriedABI : daiABI
+    const iface = new ethers.utils.Interface(ABI);
+    const functions = iface.format(ethers.utils.FormatTypes.minimal) as string[]
+
+    return (
+      <>
+        {functions.map((item: string, i: number) => {
+          if (item.split(" ")[0] == "function") {
+            const func_name = item.split(" ")[1];
+            const func_details = iface.getFunction(func_name);
+            return (
+              <div
+                key={i}
+                className="w-128 focus:outline-none text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800"
+              >
+                <h3>{item}</h3>
+                {func_details.inputs.map((param, i) => {
+                  return (
+                    <div>
+                      <p>{`${param.name} - ${param.type}\n`} </p>
+                      <input
+                        type="text"
+                        className="text-black"
+                        onChange={(e) =>
+                          setArgs((prev:any) => ({
+                            ...prev,
+                            [`${func_name}-${i}`]: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => callFunc(func_name, func_details)}
+                  type="button"
+                  className="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900"
+                >
+                  Run
+                </button>
+              </div>
+            );
+          }
+        })}
+
+        {/* <GreenButton /> */}
+        {/* <RedButton />
+        <YellowButton />
+        <PurpleButton />
+        <BlueButtton /> */}
+      </>
+    );
   };
 
   const GreenButton = () => {
@@ -55,6 +256,42 @@ export default function App({ onMount }: AppProps) {
         className="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900"
       >
         Add Arrow
+      </button>
+    );
+  };
+
+  const YellowButton = () => {
+    return (
+      <button
+        onClick={connect}
+        type="button"
+        className="focus:outline-none text-white bg-yellow-400 hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:focus:ring-yellow-900"
+      >
+        Connect
+      </button>
+    );
+  };
+
+  const PurpleButton = () => {
+    return (
+      <button
+        onClick={send}
+        type="button"
+        className="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900"
+      >
+        Send
+      </button>
+    );
+  };
+
+  const BlueButtton = () => {
+    return (
+      <button
+        onClick={abi}
+        type="button"
+        className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+      >
+        Default
       </button>
     );
   };
@@ -99,14 +336,6 @@ export default function App({ onMount }: AppProps) {
 
   return (
     <>
-      {/*
-        This example requires updating your template:
-
-        ```
-        <html class="h-full bg-gray-100">
-        <body class="h-full">
-        ```
-      */}
       <div className="min-h-full">
         <Disclosure as="nav" className="bg-gray-800">
           {({ open }) => (
@@ -283,11 +512,97 @@ export default function App({ onMount }: AppProps) {
           </div>
         </header>
         <main>
-          <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
+          <div className="max-h-8 mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
             {/* Replace with your content */}
             <div className="px-4 py-6 sm:px-0">
-              <div className="h-256 mb-9 rounded-lg border-4 border-dashed border-gray-200">
-                <Renderer
+              <form>
+                <label
+                  htmlFor="default-search"
+                  className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white"
+                >
+                  Search
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <svg
+                      aria-hidden="true"
+                      className="w-5 h-5 text-gray-500 dark:text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      ></path>
+                    </svg>
+                  </div>
+                  <input
+                    type="search"
+                    // id="default-search"
+                    className="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                    placeholder="Contract address..."
+                    required
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                  <button
+                    onClick={(e) => {e.preventDefault(); searchABI()}}
+                    type="submit"
+                    className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
+
+              <form>
+                <label
+                  htmlFor="default-search"
+                  className="mb-2 text-sm font-medium text-gray-900 sr-only dark:text-white"
+                >
+                  Search
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <svg
+                      aria-hidden="true"
+                      className="w-5 h-5 text-gray-500 dark:text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      ></path>
+                    </svg>
+                  </div>
+                  <input
+                    type="search"
+                    // id="default-search"
+                    className="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                    placeholder="Abi address..."
+                    required
+                    onChange={e => setQueriedAddr(e.target.value)}
+                  />
+                  <button
+                    onClick={(e) => {e.preventDefault(); searchABI()}}
+                    type="submit"
+                    className="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
+
+              <div className="mb-9 rounded-lg border-4 border-dashed border-gray-200">
+                {/* <Renderer
                   shapeUtils={shapeUtils} // Required
                   page={appState.data.page} // Required
                   pageState={appState.data.pageState} // Required
@@ -320,12 +635,10 @@ export default function App({ onMount }: AppProps) {
                 <Toolbar
                   activeStates={appState.active}
                   lastEvent={appState.log[0]}
-                />
+                /> */}
+
+                {populate()}
               </div>
-
-              <GreenButton />
-
-              <RedButton />
             </div>
             {/* /End replace */}
           </div>
@@ -334,28 +647,6 @@ export default function App({ onMount }: AppProps) {
     </>
   );
 }
-
-const YellowButton = () => {
-  return (
-    <button
-      type="button"
-      className="focus:outline-none text-white bg-yellow-400 hover:bg-yellow-500 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:focus:ring-yellow-900"
-    >
-      Yellow
-    </button>
-  );
-};
-
-const PurpleButton = () => {
-  return (
-    <button
-      type="button"
-      className="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900"
-    >
-      Purple
-    </button>
-  );
-};
 
 const AppContainer = styled("div", {
   position: "fixed",
